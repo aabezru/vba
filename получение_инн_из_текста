@@ -1,0 +1,87 @@
+Sub Получить_ИНН_из_текста()
+
+ 
+
+'выбираем начальную ячейку с комментарием
+
+    Dim Rng As Range 'комментарий
+
+    Dim Rng_active As Range 'пустая ячейка
+
+again:
+
+    On Error Resume Next
+
+    Set Rng_active = Application.InputBox(Prompt:="Выберите пустую ячейку для расчета", Title:="Выбираем пустую ячейку...", Type:=8)
+
+    Set Rng = Application.InputBox(Prompt:="Выберите начальную ячейку с комментарием", Title:="Выбираем начальную ячейку...", Type:=8)
+
+    If Rng Is Nothing Then
+
+        MsgBox "Ошибка! Ячейка не выбрана"
+
+        GoTo again
+
+    End If
+
+    Rng_active.Activate 'активация пустой ячейки для расчета
+
+   
+
+'Выполняем формулу регулярных выражений для получения ИНН
+
+    'переменные
+
+    lastrow = Cells(Rows.Count, 1).End(xlUp).Row
+
+    i = Rng.Column - Rng_active.Column
+
+   
+
+    'формула
+
+Application.ScreenUpdating = False 'отключить дерганье макроса
+
+formula_cycle_begin:
+
+    x = 1
+
+    Dim inn As String
+
+formula_cycle:
+
+    If Selection.Row <> lastrow + 1 Then
+
+        inn = inn + inn2 + " "
+
+        Selection.FormulaR1C1 = "=RegExpExtract(RC[" & i & "],""[0-9]{10,12}""," & x & ")"
+
+        If IsNumeric(Selection) Then
+
+            inn2 = Selection.Value
+
+            x = x + 1
+
+            GoTo formula_cycle
+
+           
+
+        End If
+
+        Selection = inn
+
+        Selection.Offset(1, 0).Select
+
+        inn = Empty
+
+        inn2 = Empty
+
+            GoTo formula_cycle_begin
+
+End If
+
+Application.ScreenUpdating = True 'включить дерганья макроса
+
+MsgBox "Готово"
+
+End Sub
