@@ -1,0 +1,304 @@
+Sub Макрос_для_ручных_платежей()
+'
+' Макрос_для_ручных_платежей
+
+
+'Распознать ФИО должника из назначения платежа:
+
+Dim lRows As Long
+    lRows = Range("A2").End(xlDown).Row
+    
+    Range("B2").Select
+    ActiveCell.FormulaR1C1 = _
+        "=RegExpExtract(RC[-1],""(?!долг|Долг|ДОЛГ)[A-ЯЁ][а-яё]+(\s[А-ЯЁ][а-яё]+){2}|[A-ЯЁ]+(\s[А-ЯЁ]+){2}"")"
+    Range("B2").Select
+    Selection.AutoFill Destination:=Range(Cells(2, 2), Cells(lRows, 2))
+    Range("B2:B163").Select
+    
+    
+'Распознать № Исполнительного производства из назначения платежа при наличии:
+
+    Range("H2").Select
+    ActiveCell.FormulaR1C1 = _
+        "=RegExpExtract(RC[-7],""([0-9]+\/[0-9]+\/[0-9]+\-ИП)"")"
+    Range("H2").Select
+    Selection.AutoFill Destination:=Range(Cells(2, 8), Cells(lRows, 8))
+    Dim l As Long
+    For l = 2 To lRows
+        If IsError(Cells(l, 8).Value) Then
+           Cells(l, 8).Value = "-"
+        End If
+    Next
+    
+    'Вставляем данные как значение:
+    
+    Columns("B:B").Select
+    Selection.Copy
+    Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+    Columns("H:H").Select
+    Selection.Copy
+    Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+    
+'Проверка на однофамильцев (по судам):
+       
+    Range("C2").Select
+    Application.CutCopyMode = False
+    Application.CutCopyMode = False
+    ActiveCell.FormulaR1C1 = "=COUNTIF('[Суды.xlsx]Список дел'!C1:C3,RC[-1])"
+    Selection.AutoFill Destination:=Range(Cells(2, 3), Cells(lRows, 3))
+    Range("C2:C163").Select
+    Columns("C:C").Select
+    Selection.Copy
+    Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+        
+'Подтягиваем номер займа:
+
+    Range("D2").Select
+    Application.CutCopyMode = False
+    Application.CutCopyMode = False
+    ActiveCell.FormulaR1C1 = "=IFERROR(VLOOKUP(RC[-2],'[Суды.xlsx]Список дел'!C1:C3,2,0),""ошибка"")"
+    Selection.AutoFill Destination:=Range(Cells(2, 4), Cells(lRows, 4))
+    Range("D2:D163").Select
+    Columns("D:D").Select
+    Selection.Copy
+    Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+    
+'Подтягиваем UserID:
+    
+    Range("E2").Select
+    Application.CutCopyMode = False
+    Application.CutCopyMode = False
+    ActiveCell.FormulaR1C1 = "=IFERROR(VLOOKUP(RC[-1],[Список.xlsx]TDSheet!C1:C3,3,0),""ошибка"")"
+    Selection.AutoFill Destination:=Range(Cells(2, 5), Cells(lRows, 5))
+    Range("E2:E163").Select
+    Columns("E:E").Select
+    Selection.Copy
+    Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+    Range("E9").Select
+    Application.CutCopyMode = False
+    
+'Комментарий
+
+Dim i As Long
+    For i = 2 To lRows
+        If Cells(i, 3) = 1 And Cells(i, 4) <> "ошибка" And Cells(i, 5) <> "ошибка" Then
+           Cells(i, 7) = "ОК"
+        ElseIf Cells(i, 3) = 1 And Cells(i, 4) <> "ошибка" And Cells(i, 5) = "ошибка" Then
+           Cells(i, 7) = "Найти UserID вручную"
+        ElseIf Cells(i, 3) = 0 And Cells(i, 4) = "ошибка" Then
+            If Cells(i, 8) <> "-" Then
+               Cells(i, 4) = "=IFERROR(VLOOKUP(RC[4],'[Суды.xlsx]Список дел'!C3:C5,3,0), ""ошибка"")"
+               If Cells(i, 4) <> "ошибка" Then
+                  Cells(i, 5) = "=IFERROR(VLOOKUP(RC[-1],[Список.xlsx]TDSheet!C1:C3,3,0), ""ошибка"")"
+                  If Cells(i, 5) = "ошибка" Then
+                     Cells(i, 7) = "Найти UserID вручную"
+                  Else
+                     Cells(i, 7) = "ОК"
+                  End If
+               Else
+                     Cells(i, 4) = "=IFERROR(VLOOKUP(RC[-2],'[Суды.xlsx]Список дел'!C6:C7,2,0),""ошибка"")"
+                     If Cells(i, 4) <> "ошибка" Then
+                        Cells(i, 5) = "=IFERROR(VLOOKUP(RC[-1],[Список.xlsx]TDSheet!C1:C3,3,0), ""ошибка"")"
+                        If Cells(i, 5) = "ошибка" Then
+                           Cells(i, 7) = "Найти UserID вручную"
+                        Else
+                           Cells(i, 7) = "ОК"
+                        End If
+                     Else
+                        Cells(i, 7) = "Проверить ФИО на корректность"
+                     End If
+               End If
+            Else
+                Cells(i, 4) = "=IFERROR(VLOOKUP(RC[-2],'[Суды.xlsx]Список дел'!C6:C7,2,0),""ошибка"")"
+                If Cells(i, 4) <> "ошибка" Then
+                   Cells(i, 5) = "=IFERROR(VLOOKUP(RC[-1],[Список.xlsx]TDSheet!C1:C3,3,0), ""ошибка"")"
+                   If Cells(i, 5) = "ошибка" Then
+                      Cells(i, 7) = "Найти UserID вручную"
+                    Else
+                      Cells(i, 7) = "ОК"
+                    End If
+                   Else
+                     Cells(i, 7) = "Проверить ФИО на корректность"
+                    End If
+               End If
+        ElseIf Cells(i, 3) > 1 Then
+            If Cells(i, 8) <> "-" Then
+               Cells(i, 4) = "=IFERROR(VLOOKUP(RC[4],'[Суды.xlsx]Список дел'!C3:C5,3,0), ""ошибка"")"
+               If Cells(i, 4) <> "ошибка" Then
+                  Cells(i, 5) = "=IFERROR(VLOOKUP(RC[-1],[Список.xlsx]TDSheet!C1:C3,3,0), ""ошибка"")"
+                  If Cells(i, 5) = "ошибка" Then
+                     Cells(i, 7) = "Найти UserID вручную"
+                  Else
+                     Cells(i, 7) = "ОК"
+                  End If
+               Else
+                  Cells(i, 4) = "=VLOOKUP(RC[-2],'[Суды.xlsx]Список дел'!C1:C3,2,0)"
+                  Cells(i, 7) = "Есть двойник !!! Уточнить номер займа !!!"
+               End If
+            Else
+                Cells(i, 7) = "Есть двойник !!! Уточнить номер займа !!!"
+            End If
+        Else
+            Cells(i, 7) = "-"
+        End If
+    Next
+
+    Columns("D:E").Select
+    Selection.Copy
+    Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+        
+ 'Добавляем лист и вставляем корректные данные
+    
+    ActiveSheet.Range(Cells(1, 1), Cells(7, lRows)).AutoFilter Field:=7, Criteria1:="ОК"
+    Sheets.Add After:=ActiveSheet
+    Sheets("Лист1").Select
+    Columns("D:F").Select
+    Selection.Copy
+    Sheets("Лист2").Select
+    Range("A1").Select
+    ActiveSheet.Paste
+    Range("D1").Select
+     ActiveCell.FormulaR1C1 = "Дата платежа"
+    Range("D2").Select
+    Columns("D:D").ColumnWidth = 16.43
+    Range("C1").Select
+    Application.CutCopyMode = False
+    Selection.Copy
+    Range("D1").Select
+    Selection.PasteSpecial Paste:=xlPasteFormats, Operation:=xlNone, _
+        SkipBlanks:=False, Transpose:=False
+    Application.CutCopyMode = False
+    
+    
+'Запрашиваем дату платежа и вставляем
+
+Dim xRows As Long
+    xRows = Range("A2").End(xlDown).Row
+    
+Range("D2").Select
+     ActiveCell.FormulaR1C1 = Date
+Range("D2").Select
+    Selection.Copy
+    Range(Cells(2, 4), Cells(xRows, 4)).Select
+    ActiveSheet.Paste
+
+    
+'Удалим дубликаты строк
+
+Range("E2").Select
+    ActiveCell.FormulaR1C1 = _
+        "=IF(COUNTIF(C[-4],RC[-4])>1,SUMIF(C[-4],RC[-4],C[-2]),RC[-2])"
+    Range("E2").Select
+    Selection.Copy
+    Range(Cells(2, 5), Cells(xRows, 5)).Select
+    ActiveSheet.Paste
+    Columns("E:E").Select
+    Selection.Copy
+    Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+        :=False, Transpose:=False
+
+    Columns("A:E").Select
+    ActiveSheet.Range(Cells(2, 1), Cells(xRows, 5)).RemoveDuplicates Columns:=Array(1, 5), _
+        Header:=xlNo
+        
+        Dim vRows As Long
+            vRows = Range("A2").End(xlDown).Row
+    
+            Range("C2").Select
+            Application.CutCopyMode = False
+            ActiveCell.FormulaR1C1 = "=RC[2]"
+            Range("C2").Select
+            Selection.AutoFill Destination:=Range(Cells(2, 3), Cells(vRows, 3))
+            Columns("C:C").Select
+            Selection.Copy
+            Selection.PasteSpecial Paste:=xlPasteValues, Operation:=xlNone, SkipBlanks _
+                :=False, Transpose:=False
+            Columns("E:E").Select
+            Application.CutCopyMode = False
+            Selection.Delete Shift:=xlToLeft
+            
+            Columns("C:C").Select
+            Selection.NumberFormat = "General"
+
+'Переименование листа
+
+    Sheets("Лист2").Select
+    Sheets("Лист2").Name = "ГОТОВЫЙ ФАЙЛ"
+    Range("D33").Select
+    Sheets("ГОТОВЫЙ ФАЙЛ").Select
+    With ActiveWorkbook.Sheets("ГОТОВЫЙ ФАЙЛ").Tab
+        .Color = 5287936
+        .TintAndShade = 0
+    End With
+    
+'Фильтруем строки с ошибкой и вставляем на новый лист
+    
+    Sheets("Лист1").Select
+    ActiveSheet.Range("$A$1:$G$181").AutoFilter Field:=7, Criteria1:=Array( _
+        "Есть двойник !!! Уточнить номер займа !!!", "Найти UserID вручную", _
+        "Проверить ФИО на корректность"), Operator:=xlFilterValues
+    Columns("A:G").Select
+    Selection.Copy
+    Sheets.Add After:=ActiveSheet
+    ActiveSheet.Paste
+    
+    Dim yRows As Long
+    yRows = Range("A2").End(xlDown).Row
+    
+    Columns("B:C").Select
+    Application.CutCopyMode = False
+    Selection.Delete Shift:=xlToLeft
+    
+     Columns("E:E").Select
+    Selection.Insert Shift:=xlToRight
+    Range("E1").Select
+    ActiveCell.FormulaR1C1 = "Дата платежа"
+    Range("E2").Select
+    Columns("A:A").ColumnWidth = 12.71
+    Columns("A:A").ColumnWidth = 36.57
+    Columns("E:E").ColumnWidth = 18.43
+    Rows("1:1").RowHeight = 120.75
+    Columns("D:D").ColumnWidth = 12.86
+    Columns("B:B").ColumnWidth = 10.86
+    Columns("B:B").ColumnWidth = 15.43
+    Columns("F:F").ColumnWidth = 31.43
+    Rows("1:1").RowHeight = 78.75
+    Rows("1:1").RowHeight = 67.5
+    Range("E2").Select
+    ActiveCell.FormulaR1C1 = Date
+        Selection.NumberFormat = "m/d/yyyy"
+    Selection.Copy
+    Range(Cells(2, 5), Cells(yRows, 5)).Select
+    ActiveSheet.Paste
+        
+    Sheets("Лист3").Select
+    Sheets("Лист3").Name = "ВНЕСТИ ИСПРАВЛЕНИЯ"
+    Range("E29").Select
+    Sheets("ВНЕСТИ ИСПРАВЛЕНИЯ").Select
+    With ActiveWorkbook.Sheets("ВНЕСТИ ИСПРАВЛЕНИЯ").Tab
+        .Color = 255
+        .TintAndShade = 0
+    End With
+    
+'Обнуляем Лист1
+
+    Sheets("Лист1").Select
+    ActiveSheet.ShowAllData
+    Range("B2:E5").Select
+    Range(Selection, Selection.End(xlDown)).Select
+    Selection.ClearContents
+    Range("G2").Select
+    Range(Selection, Selection.End(xlDown)).Select
+    Selection.ClearContents
+    ActiveWorkbook.Save
+    
+MsgBox ("Автоматическая обработка завершена." & vbCrLf & "                              Нажмите 'ОК'")
+    
+    
+End Sub
